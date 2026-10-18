@@ -1,91 +1,62 @@
-# Brain Tumor Segmentation Under Adversarial Attack
+# Brain Tumor Segmentation Under FGSM Adversarial Attack
 
-This repository contains a PyTorch-based 3D U-Net pipeline for brain tumor segmentation and adversarial robustness evaluation on MRI volumes.
+A portable evaluation script for testing the robustness of a 3D U-Net whole-tumor segmentation model against fast gradient sign method (FGSM) perturbations.
 
-## Overview
+This is a research tool, not a medical device. It is not validated for clinical use.
 
-The project includes:
-- 3D U-Net for brain tumor segmentation
-- Custom MRI dataset loader using NIfTI files
-- Baseline evaluation with Dice and IoU metrics
-- FGSM adversarial attack generation
-- Systematic robustness testing across multiple epsilon values
+## What is included
 
-## Model
+- The 3D U-Net architecture used by the training workflow (4 MRI modalities, BatchNorm, 32/64/128 channels).
+- A local CSV/NIfTI loader with image and mask grid checks.
+- Whole-tumor Dice and IoU metrics at a fixed probability threshold.
+- FGSM evaluation across configurable epsilon values.
+- An aggregate CSV output that does not contain patient IDs or input paths.
 
-The segmentation model is a custom 3D U-Net with:
-- 4 input channels
-- 1 output channel
-- encoder-decoder structure with skip connections
-- batch normalization and ReLU activations
+## Data and checkpoint
 
-## Dataset
+The repository does not include MRI scans, patient-level manifests, clinical tables, or model checkpoints. Obtain data through the appropriate source and keep all inputs outside the repository. For UPENN-GBM, see the [official TCIA collection page](https://www.cancerimagingarchive.net/collection/upenn-gbm/) for citation and access instructions.
 
-The dataset loader:
-- reads MRI modalities from a CSV file
-- loads NIfTI volumes with `nibabel`
-- applies center cropping to `(96, 96, 96)`
-- normalizes each modality independently
+The local manifest must have these columns:
 
-## Evaluation
-
-Baseline evaluation is performed on the clean test set using:
-- Dice score
-- IoU score
-
-Example clean performance:
-- Average Dice: 0.8181
-- Average IoU: 0.7331
-
-## Adversarial Attack
-
-FGSM is used to perturb the input MRI volumes:
-- loss: `BCEWithLogitsLoss`
-- perturbation: `x_adv = x + epsilon * sign(grad)`
-- clamped back to the original value range
-
-Tested epsilon values:
-- 0.0
-- 0.4
-- 0.8
-- 1.0
-- 2.0
-
-Observed average Dice scores:
-- 0.8181 at epsilon 0.0
-- 0.6537 at epsilon 0.4
-- 0.5407 at epsilon 0.8
-- 0.4557 at epsilon 1.0
-- 0.0788 at epsilon 2.0
-
-These results show a strong degradation in segmentation performance under adversarial perturbations.
-
-## Requirements
-
-```bash
-pip install -r requirements.txt
+```csv
+flair,t1,t1gd,t2,seg
+/path/to/case/FLAIR.nii.gz,/path/to/case/T1.nii.gz,/path/to/case/T1GD.nii.gz,/path/to/case/T2.nii.gz,/path/to/case/seg.nii.gz
 ```
 
-## Example dependencies
+Additional columns, such as a subject ID, are ignored. Relative file paths are resolved relative to the manifest. The four modalities and segmentation must have the same voxel shape and affine. Every non-zero segmentation label is treated as whole tumor.
 
-- torch
-- numpy
-- pandas
-- matplotlib
-- nibabel
+The checkpoint must be a raw PyTorch `state_dict` compatible with the included `UNet3D` architecture. Keep the checkpoint local; it is ignored by Git.
 
-## Notes
+## Setup
 
-The original implementation was developed in Google Colab and uses Google Drive paths.  
-Before running locally, update:
-- model path
-- dataset CSV path
-- output save paths
+Python 3.10 or newer is recommended.
 
-## Future improvements
+```bash
+python -m venv .venv
+# Windows: .venv\\Scripts\\activate
+# macOS/Linux: source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
 
-- Add PGD attack
-- Add training script
-- Add reproducible config files
-- Save qualitative attack visualizations
-- Refactor notebook code into Python modules
+## Run
+
+```bash
+python adversarial_attack.py \
+  --manifest /path/to/local_test_manifest.csv \
+  --checkpoint /path/to/local_best_model.pth \
+  --output outputs/fgsm_results.csv
+```
+
+Defaults are a 96×96×96 center crop/pad, threshold 0.5, and epsilon values `0.0 0.4 0.8 1.0 2.0`. Each modality is z-score normalized independently. FGSM uses binary cross-entropy with logits and clips perturbed inputs to the original sample's minimum and maximum values, matching the supplied experiment's approach. Epsilon is measured in the normalized input space.
+
+The output CSV contains one aggregate row per epsilon with case count, mean and standard deviation for Dice and IoU. It contains no individual case rows, identifiers, MRI values, or paths.
+
+## Scope and reproducibility
+
+The original Colab notebook mixed repeated cells, Drive-specific paths, saved image outputs, and an unrelated synthetic plotting example. The current source tree replaces it with the local CLI above. The clean evaluation has not been run here on MRI data or the private checkpoint, so no performance numbers are claimed.
+
+The original uploaded notebook remains in earlier Git history. Removing it from the current tree does not erase those historical Git objects. Full historical removal requires a coordinated history rewrite and cache cleanup.
+
+## License
+
+No code license is provided. All rights are reserved by default until the repository owner adds an appropriate license.
