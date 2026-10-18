@@ -216,3 +216,24 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local MRI data, manifests, and model weights
+data/
+*.nii
+*.nii.gz
+*.mha
+*.mhd
+*.pt
+*.pth
+*manifest*.csv
+train_data.csv
+val_data.csv
+test_data.csv
+adversarial_results.csv
+
+# Generated experiment files
+outputs/
+runs/
+*.png
+*.jpg
+*.jpeg
